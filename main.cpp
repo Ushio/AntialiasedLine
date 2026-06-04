@@ -57,6 +57,18 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float 
     float tail_coverage = edge_min_opacity + (1.0f - edge_min_opacity) * ss_max(p1_x - (x1 - 0.5f), 0.0f);
 
     int steps = x1 - x0;
+    if (steps == 0)
+    {
+        int y = roundf(p0_y);
+        if (transposed)
+        {
+            put_pixel_f(x0, y, edge_min_opacity);
+        }
+        else
+        {
+            put_pixel_f(y, x0, edge_min_opacity);
+        }
+    }
     for (int i = 0; i <= steps; i++)
     {
         int ix = x0 + i;
@@ -139,6 +151,14 @@ int main() {
             int c8 = c * 255.0f + 0.5f; // nearest neighbor
             put_pixel(x, y, ss_min(c8, 255));
         });
+
+        // corner case
+        //draw_antialised_line(1, 10, 1, 10, 0.5f, [](int x, int y, float energy) {
+        //    // super rough approx of x^(1 - 2.2)
+        //    float c = sqrtf(energy);
+        //    int c8 = c * 255.0f + 0.5f; // nearest neighbor
+        //    put_pixel(x, y, ss_min(c8, 255));
+        //});
 
         ManipulatePosition(camera, &p0, 2);
         ManipulatePosition(camera, &p1, 2);
