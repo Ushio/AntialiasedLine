@@ -32,12 +32,23 @@ inline constexpr T ss_min(T x, T y)
 
 // Xiaolin Wu's line algorithm
 template <class PutPixel>
-void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPixel put_pixel_f)
+void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPixel put_pixel_f, bool transposed = false)
 {
+    float dydx = (p1_y - p0_y) / (p1_x - p0_x);
+
+    if (transposed == false && 1.0f < fabs(dydx))
+    {
+        draw_antialised_line(p0_y, p0_x, p1_y, p1_x, put_pixel_f, true);
+        return;
+    }
+
+    if (p1_x < p0_x)
+    {
+        std::swap(p0_x, p1_x);
+        std::swap(p1_y, p0_y);
+    }
     int x0 = roundf(p0_x);
     int x1 = roundf(p1_x);
-
-    float dydx = (p1_y - p0_y) / (p1_x - p0_x);
 
     float step_to_align = x0 - p0_x;
     float beg_y = p0_y + dydx * step_to_align;
@@ -50,7 +61,9 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
         int ix = x0 + i;
         float x_here = x0 + i;
         float y_here = beg_y + dydx * i;
-        pr::DrawPoint({ x_here, y_here, 0 }, { 255, 0, 0 }, 10);
+
+        // debug only for dydx < 1.0 case
+        // pr::DrawPoint({ x_here, y_here, 0 }, { 255, 0, 0 }, 10);
 
         int center0 = floor(y_here);
         int center1 = ceil(y_here);
@@ -69,8 +82,16 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
             e0 *= tail_coverage;
             e1 *= tail_coverage;
         }
-        put_pixel_f(ix, center0, e0);
-        put_pixel_f(ix, center1, e1);
+        if (transposed)
+        {
+            put_pixel_f(center0, ix, e0);
+            put_pixel_f(center1, ix, e1);
+        }
+        else
+        {
+            put_pixel_f(ix, center0, e0);
+            put_pixel_f(ix, center1, e1);
+        }
     }
 }
 
