@@ -32,13 +32,13 @@ inline constexpr T ss_min(T x, T y)
 
 // Xiaolin Wu's line algorithm
 template <class PutPixel>
-void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPixel put_pixel_f, bool transposed = false)
+void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float edge_min_opacity, PutPixel put_pixel_f, bool transposed = false)
 {
     float dydx = (p1_y - p0_y) / (p1_x - p0_x);
 
     if (transposed == false && 1.0f < fabs(dydx))
     {
-        draw_antialised_line(p0_y, p0_x, p1_y, p1_x, put_pixel_f, true);
+        draw_antialised_line(p0_y, p0_x, p1_y, p1_x, edge_min_opacity, put_pixel_f, true);
         return;
     }
 
@@ -52,8 +52,9 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
 
     float step_to_align = x0 - p0_x;
     float beg_y = p0_y + dydx * step_to_align;
-    float head_coverage = ss_max(x0 + 0.5f - p0_x, 0.0f);
-    float tail_coverage = ss_max(p1_x - (x1 - 0.5f), 0.0f);
+
+    float head_coverage = edge_min_opacity + (1.0f - edge_min_opacity) * ss_max(x0 + 0.5f - p0_x, 0.0f);
+    float tail_coverage = edge_min_opacity + (1.0f - edge_min_opacity) * ss_max(p1_x - (x1 - 0.5f), 0.0f);
 
     int steps = x1 - x0;
     for (int i = 0; i <= steps; i++)
@@ -98,6 +99,8 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
 int main() {
     using namespace pr;
 
+    SetDataDir(ExecutableDir());
+
     Config config;
     config.ScreenWidth = 1920;
     config.ScreenHeight = 1080;
@@ -130,7 +133,7 @@ int main() {
         static glm::vec3 p0 = { 0.0f, 0.0f, 0.0f };
         static glm::vec3 p1 = { 5.0f, 1.0f, 0.0f };
 
-        draw_antialised_line(p0.x, p0.y, p1.x, p1.y, [](int x, int y, float energy) {
+        draw_antialised_line(p0.x, p0.y, p1.x, p1.y, 0.0f, [](int x, int y, float energy) {
             // super rough approx of x^(1 - 2.2)
             float c = sqrtf(energy);
             int c8 = c * 255.0f + 0.5f; // nearest neighbor
@@ -148,6 +151,45 @@ int main() {
         ImGui::SetNextWindowSize({ 500, 800 }, ImGuiCond_Once);
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
+
+        if (ImGui::Button("save"))
+        {
+            Image2DRGBA8 image;
+            int size = 512;
+            image.allocate(size, size);
+            for (int y = 0; y < image.width(); y++)
+            for (int x = 0; x < image.width(); x++)
+            {
+                image(x, y) = { 0, 0, 0, 255 };
+            }
+
+            int N = 64;
+            pr::CircleGenerator c(glm::pi<float>() * 2.0f / N);
+            for (int i = 0; i < N; i++)
+            {
+                float from_x = 255.0f + c.cos() * 200.0f;
+                float from_y = 255.0f + c.sin() * 200.0f;
+
+                c.step();
+
+                float to_x = 255.0f + c.cos() * 200.0f;
+                float to_y = 255.0f + c.sin() * 200.0f;
+
+                draw_antialised_line(from_x, from_y, to_x, to_y, 0.0f, [&image](int x, int y, float energy) {
+                    // super rough approx of x^(1 - 2.2)
+                    float c = sqrtf(energy);
+                    int c8 = c * 255.0f + 0.5f; // nearest neighbor
+                    c8 = ss_min(c8, 255);
+
+                    int r = image(x, y).r;
+
+                    // screen composition. very heuristic.. but looks not bad.
+                    int composite = 255 - (255 - c8) * (255 - r) / 255;
+                    image(x, y) = { composite, composite, composite, 255};
+                });
+            }
+            image.saveAsPng("circle.png");
+        }
 
         ImGui::End();
 
