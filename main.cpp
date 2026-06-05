@@ -32,13 +32,13 @@ inline constexpr T ss_min(T x, T y)
 
 // Xiaolin Wu's line algorithm
 template <class PutPixel>
-void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float edge_min_opacity, PutPixel put_pixel_f, bool transposed = false)
+void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPixel put_pixel_f, bool transposed = false)
 {
     float dydx = (p1_y - p0_y) / (p1_x - p0_x);
 
     if (transposed == false && 1.0f < fabs(dydx))
     {
-        draw_antialised_line(p0_y, p0_x, p1_y, p1_x, edge_min_opacity, put_pixel_f, true);
+        draw_antialised_line(p0_y, p0_x, p1_y, p1_x, put_pixel_f, true);
         return;
     }
 
@@ -47,14 +47,12 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float 
         std::swap(p0_x, p1_x);
         std::swap(p1_y, p0_y);
     }
+
     int x0 = roundf(p0_x);
     int x1 = roundf(p1_x);
 
     float step_to_align = x0 - p0_x;
     float beg_y = p0_y + dydx * step_to_align;
-
-    float head_coverage = edge_min_opacity + (1.0f - edge_min_opacity) * ss_max(x0 + 0.5f - p0_x, 0.0f);
-    float tail_coverage = edge_min_opacity + (1.0f - edge_min_opacity) * ss_max(p1_x - (x1 - 0.5f), 0.0f);
 
     int steps = x1 - x0;
     if (steps == 0)
@@ -62,11 +60,11 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float 
         int y = roundf(p0_y);
         if (transposed)
         {
-            put_pixel_f(x0, y, edge_min_opacity);
+            put_pixel_f(x0, y, 0.5f);
         }
         else
         {
-            put_pixel_f(y, x0, edge_min_opacity);
+            put_pixel_f(y, x0, 0.5f);
         }
     }
     for (int i = 0; i <= steps; i++)
@@ -75,8 +73,15 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float 
         float x_here = x0 + i;
         float y_here = beg_y + dydx * i;
 
-        // debug only for dydx < 1.0 case
-        // pr::DrawPoint({ x_here, y_here, 0 }, { 255, 0, 0 }, 10);
+        // debug only 
+        //if (transposed)
+        //{
+        //    pr::DrawPoint({ y_here,x_here,  0 }, { 255, 0, 0 }, 10);
+        //}
+        //else
+        //{
+        //    pr::DrawPoint({ x_here, y_here, 0 }, { 255, 0, 0 }, 10);
+        //}
 
         int center0 = floor(y_here);
         int center1 = ceil(y_here);
@@ -85,16 +90,6 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, float 
         float e0 = ss_max(1.0f - distance0, 0.0f);
         float e1 = distance0;
 
-        if (i == 0) // head
-        {
-            e0 *= head_coverage;
-            e1 *= head_coverage;
-        }
-        if (i == steps) // tail
-        {
-            e0 *= tail_coverage;
-            e1 *= tail_coverage;
-        }
         if (transposed)
         {
             put_pixel_f(center0, ix, e0);
@@ -144,13 +139,20 @@ int main() {
         
         static glm::vec3 p0 = { 0.0f, 0.0f, 0.0f };
         static glm::vec3 p1 = { 5.0f, 1.0f, 0.0f };
+        static glm::vec3 p2 = { 4.0f, 7.0f, 0.0f };
 
-        draw_antialised_line(p0.x, p0.y, p1.x, p1.y, 0.0f, [](int x, int y, float energy) {
+        draw_antialised_line(p0.x, p0.y, p1.x, p1.y, [](int x, int y, float energy) {
             // super rough approx of x^(1 - 2.2)
             float c = sqrtf(energy);
             int c8 = c * 255.0f + 0.5f; // nearest neighbor
             put_pixel(x, y, ss_min(c8, 255));
         });
+        //draw_antialised_line(p1.x, p1.y, p2.x, p2.y, [](int x, int y, float energy) {
+        //    // super rough approx of x^(1 - 2.2)
+        //    float c = sqrtf(energy);
+        //    int c8 = c * 255.0f + 0.5f; // nearest neighbor
+        //    put_pixel(x, y, ss_min(c8, 255));
+        //});
 
         // corner case
         //draw_antialised_line(1, 10, 1, 10, 0.5f, [](int x, int y, float energy) {
@@ -160,8 +162,29 @@ int main() {
         //    put_pixel(x, y, ss_min(c8, 255));
         //});
 
+        int N = 64;
+        pr::CircleGenerator c(glm::pi<float>() * 2.0f / N);
+        for (int i = 0; i < N; i++)
+        {
+            float from_x = c.cos() * 200.0f;
+            float from_y = c.sin() * 200.0f;
+
+            c.step();
+
+            float to_x = c.cos() * 200.0f;
+            float to_y = c.sin() * 200.0f;
+
+            draw_antialised_line(from_x, from_y, to_x, to_y, [](int x, int y, float energy) {
+                // super rough approx of x^(1 - 2.2)
+                float c = sqrtf(energy);
+                int c8 = c * 255.0f + 0.5f; // nearest neighbor
+                put_pixel(x, y, ss_min(c8, 255));
+            });
+        }
+
         ManipulatePosition(camera, &p0, 2);
         ManipulatePosition(camera, &p1, 2);
+        ManipulatePosition(camera, &p2, 2);
 
         PopGraphicState();
         EndCamera();
@@ -195,7 +218,7 @@ int main() {
                 float to_x = 255.0f + c.cos() * 200.0f;
                 float to_y = 255.0f + c.sin() * 200.0f;
 
-                draw_antialised_line(from_x, from_y, to_x, to_y, 0.0f, [&image](int x, int y, float energy) {
+                draw_antialised_line(from_x, from_y, to_x, to_y, [&image](int x, int y, float energy) {
                     // super rough approx of x^(1 - 2.2)
                     float c = sqrtf(energy);
                     int c8 = c * 255.0f + 0.5f; // nearest neighbor
@@ -203,9 +226,12 @@ int main() {
 
                     int r = image(x, y).r;
 
-                    // screen composition. very heuristic.. but looks not bad.
-                    int composite = 255 - (255 - c8) * (255 - r) / 255;
-                    image(x, y) = { composite, composite, composite, 255};
+                    //// screen composition. very heuristic.. but looks not bad.
+                    //int composite = 255 - (255 - c8) * (255 - r) / 255;
+                    //image(x, y) = { composite, composite, composite, 255};
+
+                    // don't care
+                    image(x, y) = { c8, c8, c8, 255 };
                 });
             }
             image.saveAsPng("circle.png");
