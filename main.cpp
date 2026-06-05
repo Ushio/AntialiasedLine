@@ -84,7 +84,7 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
         //}
 
         int center0 = floor(y_here);
-        int center1 = ceil(y_here);
+        int center1 = center0 + 1;
         float distance0 = fabs(center0 - y_here);
 
         float e0 = ss_max(1.0f - distance0, 0.0f);
@@ -117,7 +117,7 @@ int main() {
     Camera3D camera;
     camera.origin = { 0, 0, 10 };
     camera.lookat = { 0, 0, 0 };
-
+    camera.zFar = 10000;
     double e = GetElapsedTime();
 
     while (pr::NextFrame() == false) {
@@ -147,6 +147,7 @@ int main() {
             int c8 = c * 255.0f + 0.5f; // nearest neighbor
             put_pixel(x, y, ss_min(c8, 255));
         });
+
         //draw_antialised_line(p1.x, p1.y, p2.x, p2.y, [](int x, int y, float energy) {
         //    // super rough approx of x^(1 - 2.2)
         //    float c = sqrtf(energy);
@@ -200,7 +201,7 @@ int main() {
             Image2DRGBA8 image;
             int size = 512;
             image.allocate(size, size);
-            for (int y = 0; y < image.width(); y++)
+            for (int y = 0; y < image.height(); y++)
             for (int x = 0; x < image.width(); x++)
             {
                 image(x, y) = { 0, 0, 0, 255 };
