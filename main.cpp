@@ -66,6 +66,7 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
         {
             put_pixel_f(y, x0, 0.5f);
         }
+        return;
     }
     for (int i = 0; i <= steps; i++)
     {
