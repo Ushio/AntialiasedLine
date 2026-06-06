@@ -60,11 +60,11 @@ void draw_antialised_line(float p0_x, float p0_y, float p1_x, float p1_y, PutPix
         int y = roundf(p0_y);
         if (transposed)
         {
-            put_pixel_f(x0, y, 0.5f);
+            put_pixel_f(y, x0, 0.5f);
         }
         else
         {
-            put_pixel_f(y, x0, 0.5f);
+            put_pixel_f(x0, y, 0.5f);
         }
         return;
     }
